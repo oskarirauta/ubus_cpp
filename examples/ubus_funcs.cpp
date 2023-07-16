@@ -4,22 +4,21 @@
 #include "ubus_funcs.hpp"
 
 int ubus_get(const std::string& method, const std::string& msg, std::string& result) {
-	std::cout << "called ubus_get with method " << method << std::endl;
+	std::cout << "call to ubus_get with method " << method << std::endl;
 
-	json::JSON json_msg;
+	json::JSON args;
 
 	if ( !msg.empty()) {
 		try {
-		json_msg = json::JSON::Load(msg);
+		args = json::JSON::Load(msg);
 		} catch (std::error_code e) {
 			std::cout << "problem parsing " << msg << std::endl;
 			//std::cout << "error: " << e.what() << std::endl;
 		}
-		std::cout << "received message: " << msg << std::endl;
 	}
 
-	if ( json_msg.size() != 0 )
-		std::cout << "received json: " << json_msg << std::endl;
+	if ( args.size() != 0 )
+		std::cout << "received args: " << args << std::endl;
 
 	json::JSON answer;
 	answer["ping"] = "pong";
@@ -31,20 +30,26 @@ int ubus_get(const std::string& method, const std::string& msg, std::string& res
 }
 
 int ubus_list(const std::string& method, const std::string& msg, std::string& result) {
-	std::cout << "called ubus_list with method " << method << std::endl;
+	std::cout << "call to ubus_list with method " << method << std::endl;
+	result = "{\"list\":[1,2,3,4,5]}";
 	return 0;
 }
 
 int ubus_test(const std::string& method, const std::string& msg, std::string& result) {
 
-	std::cout << "called ubus_test with method " << method << std::endl;
+	std::cout << "call to ubus_test with method " << method << std::endl;
+
+	json::JSON args;
 
 	if ( !msg.empty()) {
 		std::error_code err;
-		json::JSON json_msg = json::JSON::Load(msg, err);
-		if ( !err )
-			std::cout << "parsed: " << json_msg << std::endl;
-	}
+		args = json::JSON::Load(msg, err);
+		if ( args = json::JSON::Load(msg, err); !err )
+			std::cout << "received args: " << args << std::endl;
+		else std::cout << "problem parsing " << msg << std::endl;
+	} else std::cout << "no arguments provided" << std::endl;
+
+	result = "{\"test\":" + args.dumpMinified() + "}";
 
 	return 0;
 }

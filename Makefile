@@ -4,26 +4,28 @@ CXX?=g++
 CXXFLAGS?=--std=c++23 -Wall -fPIC
 LDFLAGS?=-L/lib -L/usr/lib
 
-INCLUDES+= -I./include -I./jsoncpp/include
-LIBS:=-lubox -lblobmsg_json -lubus -luci
+INCLUDES+= -I./examples/include -I./jsoncpp/include
 
-OBJS:= \
-	objs/ubus.o objs/ubus_funcs.o objs/main.o
+UBUSCPP_DIR:=.
+include Makefile.inc
 
-world: ubus-test
+world: srv cli
 
-objs/ubus.o: src/ubus.cpp
+objs/ubus_funcs.o: examples/ubus_funcs.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<;
 
-objs/ubus_funcs.o: src/ubus_funcs.cpp
+objs/cli.o: examples/cli.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<;
 
-objs/main.o: main.cpp
+objs/srv.o: examples/srv.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<;
 
-ubus-test: $(OBJS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -L. $(LIBS) $^ -o $@;
+srv: $(UBUS_SRV_OBJS) objs/ubus_funcs.o objs/srv.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -L. $(UBUS_LIBS) $^ -o $@;
+
+cli: $(UBUS_CLI_OBJS) objs/cli.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -L. $(UBUS_LIBS) $^ -o $@;
 
 .PHONY: clean
 clean:
-	rm -f objs/*.o ubus-test
+	rm -f objs/*.o srv cli

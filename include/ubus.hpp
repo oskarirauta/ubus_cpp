@@ -1,8 +1,6 @@
 #pragma once
 
 #include <vector>
-#include <string>
-#include <exception>
 #include <functional>
 
 extern "C" {
@@ -10,7 +8,9 @@ extern "C" {
 #include <libubus.h>
 }
 
-#define UBUS_HANDLER(name, func) ubus_method(name, [](ubus_context* ctx, ubus_object* obj, ubus_request_data* req, const char* method, blob_attr* msg){ \
+#include "ubus-common.hpp"
+
+#define UBUS_HANDLER(name, func) ubus_method(name, [](ubus_context* ctx, ubus_object* obj, ubus_request_data* req, const char* method, blob_attr* msg) { \
 	std::string _msg, _ret; \
 	\
 	if ( blob_len(msg) > 0 ) \
@@ -19,44 +19,19 @@ extern "C" {
 	int code = func(std::string(method), _msg, _ret); \
 	\
 	if ( _ret.size() != 0 ) { \
-		blob_buf_init(&ubus::b, 0); \
-		blobmsg_add_json_from_string(&ubus::b, _ret.c_str()); \
-		ubus_send_reply(ctx, req, ubus::b.head); \
+		blob_buf_init(&ubus::service::blob, 0); \
+		blobmsg_add_json_from_string(&ubus::service::blob, _ret.c_str()); \
+		ubus_send_reply(ctx, req, ubus::service::blob.head); \
 	} \
 	\
 	return code; \
-	})
+})
 
 namespace ubus {
 
-	extern struct blob_buf b;
+	class service : public ubus::context {
 
-	class exception : public std::exception {
-
-		private:
-
-			const char *message;
-			const int _code;
-
-		public:
-
-			exception(const std::string& message, const int code) : message(message.c_str()), _code(code) {}
-
-			const char *what() {
-				return message;
-			}
-
-			int code() {
-				return _code;
-			}
-
-	};
-
-	class context {
-
-		private:
-
-			std::string _sockfd;
+		protected:
 
 			ubus_object_type t;
 			ubus_object o;
@@ -68,14 +43,10 @@ namespace ubus {
 
 		public:
 
-			struct ubus_context *ctx;
+			static struct blob_buf blob;
 
-			inline const std::string& sockfd() {
-				return this -> _sockfd;
-			}
-
-			context(std::string ubus_socket = "");
-			~context();
+			service(std::string ubus_socket = "");
+			~service();
 
 			void add_object(const std::string name, const std::vector<ubus_method> &methods);
 	};

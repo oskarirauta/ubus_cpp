@@ -31,4 +31,5 @@ objs/*.o
 *.exe
 *.out
 *.app
-ubus-test
+srv
+cli
