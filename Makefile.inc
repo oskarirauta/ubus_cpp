@@ -1,4 +1,4 @@
-UBUSCPP_DIR?=ubuscpp
+UBUSCPP_DIR?=ubus
 INCLUDES += -I./$(UBUSCPP_DIR)/include
 UBUS_LIBS:=-lubox -lblobmsg_json -lubus -luci
 
