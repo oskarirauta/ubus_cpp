@@ -28,14 +28,16 @@ void ubus::service::add_object(const std::string name, const std::vector<ubus_me
 		.n_methods = (int)this -> methods.back().size()
 	};
 
-	this -> o = {
+	this -> o = (ubus_object){
 		.name = name.c_str(),
 		.type = &this -> t,
 		.methods = &this -> methods.back()[0],
 		.n_methods = (int)this -> methods.back().size()
 	};
 
-	if ( int ret = ubus_add_object(this -> ctx, &this -> o); ret != 0 )
+	int ret = ubus_add_object(this -> ctx, &this -> o);
+
+	if ( ret != 0 )
 		throw ubus::exception(ubus_strerror(ret), ret);
 	else this -> next_id++;
 

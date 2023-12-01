@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <mutex>
+#include <bits/stdc++.h>
 
 extern "C" {
 #include <libubox/blobmsg_json.h>

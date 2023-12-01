@@ -27,7 +27,10 @@ static void make_receiver(ubus_context *ctx, int timeout) {
 
 	auto now = get_now(0);
 	receivers.remove_if([&now](const ubus_msg_receiver& entry) { return now > entry.expires; });
-	receivers.push_back(ubus_msg_receiver(ctx, get_now(timeout + 500)));
+	receivers.push_back(ubus_msg_receiver({
+		.ctx = ctx,
+		.expires = get_now(timeout + 500)
+	}));
 }
 
 static bool waiting_receiver_msg(ubus_context *ctx) {

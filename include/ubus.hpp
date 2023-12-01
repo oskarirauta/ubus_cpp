@@ -10,21 +10,26 @@ extern "C" {
 
 #include "ubus-common.hpp"
 
-#define UBUS_HANDLER(name, func) ubus_method(name, [](ubus_context* ctx, ubus_object* obj, ubus_request_data* req, const char* method, blob_attr* msg) { \
-	std::string _msg, _ret; \
-	\
-	if ( blob_len(msg) > 0 ) \
-		_msg = std::string(blobmsg_format_json(msg, true)); \
-	\
-	int code = func(std::string(method), _msg, _ret); \
-	\
-	if ( _ret.size() != 0 ) { \
-		blob_buf_init(&ubus::service::blob, 0); \
-		blobmsg_add_json_from_string(&ubus::service::blob, _ret.c_str()); \
-		ubus_send_reply(ctx, req, ubus::service::blob.head); \
-	} \
-	\
-	return code; \
+#define UBUS_HANDLER(n, f) ubus_method({ \
+        .name = n, \
+        .handler = [](ubus_context* ctx, ubus_object* obj, ubus_request_data* req, const char* method, blob_attr* msg) { \
+                \
+                std::string _msg, _ret; \
+                \
+                if ( blob_len(msg) > 0 ) \
+                        _msg = std::string(blobmsg_format_json(msg, true)); \
+                \
+                int code = f(std::string(method), _msg, _ret); \
+                \
+                if ( _ret.size() != 0 ) { \
+                        blob_buf_init(&ubus::service::blob, 0); \
+                        blobmsg_add_json_from_string(&ubus::service::blob, _ret.c_str()); \
+                        ubus_send_reply(ctx, req, ubus::service::blob.head); \
+                } \
+                \
+                return code; \
+        }, \
+        .tags = 0 \
 })
 
 namespace ubus {
