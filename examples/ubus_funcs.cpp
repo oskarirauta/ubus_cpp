@@ -42,11 +42,16 @@ int ubus_test(const std::string& method, const std::string& msg, std::string& re
 	json::JSON args;
 
 	if ( !msg.empty()) {
+
 		std::error_code err;
 		args = json::JSON::Load(msg, err);
-		if ( args = json::JSON::Load(msg, err); !err )
+
+		if ( !err ) {
 			std::cout << "received args: " << args << std::endl;
-		else std::cout << "problem parsing " << msg << std::endl;
+		} else {
+			std::cout << "problem parsing " << msg << std::endl;
+		}
+
 	} else std::cout << "no arguments provided" << std::endl;
 
 	result = "{\"test\":" + args.dumpMinified() + "}";
