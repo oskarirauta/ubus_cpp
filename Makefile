@@ -1,7 +1,7 @@
 all: world
 
 CXX?=g++
-CXXFLAGS?=--std=c++23 -Wall -fPIC
+CXXFLAGS?=--std=c++17 -Wall -fPIC
 LDFLAGS?=-L/lib -L/usr/lib
 
 INCLUDES+= -I./examples/include -I./jsoncpp/include
