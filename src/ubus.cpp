@@ -28,7 +28,7 @@ void ubus::service::add_object(const std::string name, const std::vector<ubus_me
 		.n_methods = (int)this -> methods.back().size()
 	};
 
-	this -> o = {
+	this -> o = (ubus_object){
 		.name = name.c_str(),
 		.type = &this -> t,
 		.methods = &this -> methods.back()[0],
