@@ -31,5 +31,7 @@ objs/*.o
 *.exe
 *.out
 *.app
+
+objs
 srv
 cli
