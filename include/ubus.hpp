@@ -43,7 +43,6 @@ namespace ubus {
 			std::vector<ubus_object_type> types;
 			std::vector<ubus_object> objects;
 			std::vector<std::vector<ubus_method> > methods;
-
 			uint32_t next_id = 0;
 
 		public:

@@ -1,19 +1,28 @@
 #include <iostream>
 
+#include "json.hpp"
 #include "ubus-cli.hpp"
 
 void make_call(ubus::client *client, const std::string& obj, const std::string& cmd, const std::string& args) {
 
 	std::string result;
 
-	//std::cout << "making ubus call to " << obj << " with command: " << cmd << std::endl;
-
 	try {
 		client -> call(obj, cmd, result, args);
-		std::cout << "ubus call to " << obj << " with command " << cmd << ":\n" << result << "\n" << std::endl;
-	} catch ( ubus::exception& e ) {
+
+		try {
+			JSON json = JSON::parse(result);
+			std::cout << "ubus call to " << obj << " with command " << cmd << " - received:\n" << json.dump(false) << "\n" << std::endl;
+
+		} catch ( const JSON::exception& e ) {
+			std::cout << "making ubus call to " << obj << " with command: " << cmd << std::endl;
+			std::cout << "failed to parse json:\n" << result << "\nerror: " << e.what() << std::endl;
+			return;
+		}
+
+	} catch ( const ubus::exception& e ) {
 		std::cout << "ubus call to " << obj << " with command " << cmd << " failed with error:\n" <<
-			"error " << e.code() << ", " << e.what() << "\n" << std::endl;
+			"error: " << e.code() << ", " << e.what() << "\n" << std::endl;
 	}
 }
 

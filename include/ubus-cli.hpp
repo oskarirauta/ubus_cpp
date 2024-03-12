@@ -1,7 +1,6 @@
 #pragma once
 
-#include <vector>
-#include <mutex>
+#include <string>
 #include <bits/stdc++.h>
 
 extern "C" {
@@ -18,7 +17,6 @@ namespace ubus {
 		private:
 
 			int _timeout;
-			std::mutex m;
 
 		public:
 

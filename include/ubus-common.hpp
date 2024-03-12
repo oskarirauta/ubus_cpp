@@ -1,7 +1,8 @@
 #pragma once
 
 #include <string>
-#include <exception>
+#include <stdexcept>
+#include <ostream>
 
 extern "C" {
 #include <libubox/blobmsg_json.h>
@@ -10,25 +11,25 @@ extern "C" {
 
 namespace ubus {
 
-	class exception : public std::exception {
+	class exception : public std::runtime_error {
 
 		private:
 
-			const char *message;
 			const int _code;
+			const std::string _msg;
 
 		public:
 
-			exception(const std::string& message, const int code) : message(message.c_str()), _code(code) {}
-
-			const char *what() {
-				return message;
-			}
-
-			int code() {
+			inline int code() const {
 				return _code;
 			}
 
+			inline const char *what() const noexcept override {
+
+				return this -> _msg.c_str();
+			}
+
+			exception(const std::string& msg, const int code) : std::runtime_error(""), _code(code), _msg(msg) {}
 	};
 
 	class context {
@@ -46,4 +47,10 @@ namespace ubus {
 
 	};
 
+}
+
+inline std::ostream& operator <<(std::ostream& os, const ubus::exception& e) {
+
+	os << e.what();
+	return os;
 }

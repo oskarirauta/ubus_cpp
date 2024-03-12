@@ -32,4 +32,4 @@ cli: $(JSON_OBJS) $(UBUS_CLI_OBJS) objs/cli.o
 .PHONY: clean
 clean:
 	@rm -rf objs
-	@rm -f example
+	@rm -f cli srv
