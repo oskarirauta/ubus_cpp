@@ -6,23 +6,23 @@
 int ubus_get(const std::string& method, const std::string& msg, std::string& result) {
 	std::cout << "call to ubus_get with method " << method << std::endl;
 
-	json::JSON args;
+	JSON json;
 
 	if ( !msg.empty()) {
+
 		try {
-		args = json::JSON::Load(msg);
-		} catch (std::error_code e) {
-			std::cout << "problem parsing " << msg << std::endl;
-			//std::cout << "error: " << e.what() << std::endl;
+			json = JSON::parse(msg);
+		} catch ( const JSON::exception& e ) {
+			std::cout << "problem parsing:\n" << msg << "/nerror: " << e.what() << std::endl;
 		}
 	}
 
-	if ( args.size() != 0 )
-		std::cout << "received args: " << args << std::endl;
+	if ( !json.empty())
+		std::cout << "received args: " << json << std::endl;
 
-	json::JSON answer;
+	JSON answer;
 	answer["ping"] = "pong";
-	result = answer.dumpMinified();
+	result = answer.dump(false);
 
 	std::cout << "replying: " << answer << std::endl;
 
@@ -39,22 +39,23 @@ int ubus_test(const std::string& method, const std::string& msg, std::string& re
 
 	std::cout << "call to ubus_test with method " << method << std::endl;
 
-	json::JSON args;
+	JSON json;
 
 	if ( !msg.empty()) {
 
 		std::error_code err;
-		args = json::JSON::Load(msg, err);
 
-		if ( !err ) {
-			std::cout << "received args: " << args << std::endl;
-		} else {
-			std::cout << "problem parsing " << msg << std::endl;
+		try {
+			json = JSON::parse(msg);
+			std::cout << "received args: " << json << std::endl;
+
+		} catch ( const JSON::exception& e ) {
+			std::cout << "problem parsing:\n" << msg << "/nerror: " << e.what() << std::endl;
 		}
 
 	} else std::cout << "no arguments provided" << std::endl;
 
-	result = "{\"test\":" + args.dumpMinified() + "}";
+	result = "{\"test\":" + json.dump(false) + "}";
 
 	return 0;
 }
