@@ -23,10 +23,10 @@ objs/cli.o: examples/cli.cpp
 objs/srv.o: examples/srv.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<;
 
-srv: $(JSON_OBJS) $(UBUS_SRV_OBJS) objs/ubus_funcs.o objs/srv.o
+srv: $(JSON_OBJS) $(UBUS_OBJS) objs/ubus_funcs.o objs/srv.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -L. $(UBUS_LIBS) $^ -o $@;
 
-cli: $(JSON_OBJS) $(UBUS_CLI_OBJS) objs/cli.o
+cli: $(JSON_OBJS) $(UBUS_OBJS) objs/cli.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -L. $(UBUS_LIBS) $^ -o $@;
 
 .PHONY: clean
