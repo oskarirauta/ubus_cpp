@@ -13,9 +13,12 @@ To execute these programs, you will either need to be root, or execute with
 sudo. For client program to work, srv service needs to be running on background.
 
 ### json
-json is always imported/exported as a std::string, so you can use what
-ever json implementation that supports std::string as source/dump target.
-Example code uses [json_cpp](https://github.com/oskarirauta/json_cpp)
+[json_cpp](https://github.com/oskarirauta/json_cpp) is used for json operations.
+Previous versions used strings to allow _any_ json library user wants.
+After thought, I decided to go this way- but you can always use [release v1.0.0](https://github.com/oskarirauta/ubus_cpp/releases/tag/1.0.0)
+which uses strings if you want to avoid usage of json_cpp - after all, it
+requires pretty new C++ standard as a caveat - or might not be to everyone's
+liking.
 
 ### notes
 Same program cannot run 2 simulatenous ubus connections, not through same

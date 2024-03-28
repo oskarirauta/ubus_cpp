@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "json.hpp"
-#include "ubus-cli.hpp"
+#include "ubus.hpp"
 
 void make_call(ubus::client *client, const std::string& obj, const std::string& cmd, const std::string& args) {
 

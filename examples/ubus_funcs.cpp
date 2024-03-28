@@ -3,69 +3,39 @@
 #include "json.hpp"
 #include "ubus_funcs.hpp"
 
-int ubus_get(const std::string& method, const std::string& msg, std::string& result) {
+int ubus_get(const std::string& method, const JSON& msg, JSON& result) {
 
-	JSON json;
 	std::cout << "\ncall to ubus_get with method " << method << std::endl;
 
-	if ( !msg.empty()) {
-
-		try {
-			json = JSON::parse(msg);
-		} catch ( const JSON::exception& e ) {
-			std::cout << "problem parsing:\n" << msg << "/nerror: " << e.what() << std::endl;
-		}
-	}
-
-	if ( !json.empty())
-		std::cout << "received args: " << json.dump(false) << std::endl;
-
-	JSON answer;
-	answer["ping"] = "pong";
-	result = answer.dump(false);
-
-	std::cout << "replying: " << answer.dump(false) << std::endl;
-
+	if ( !msg.empty())
+		std::cout << "received args: " << msg.dump(false) << std::endl;
+	result["ping"] = "pong";
+	std::cout << "replying: " << result.dump(false) << std::endl;
 	return 0;
 }
 
-int ubus_list(const std::string& method, const std::string& msg, std::string& result) {
+int ubus_list(const std::string& method, const JSON& msg, JSON& result) {
 
 	std::cout << "\ncall to ubus_list with method " << method << std::endl;
-	result = "{\"list\":[1,2,3,4,5]}";
+	result = JSON::parse("{\"list\":[1,2,3,4,5]}");
 	return 0;
 }
 
-int ubus_test(const std::string& method, const std::string& msg, std::string& result) {
+int ubus_test(const std::string& method, const JSON& msg, JSON& result) {
 
-	JSON json;
 	std::cout << "\ncall to ubus_test with method " << method << std::endl;
 
-	if ( !msg.empty()) {
+	if ( msg.empty())
+		std::cout << "no arguments provided" << std::endl;
 
-		std::error_code err;
-
-		try {
-			json = JSON::parse(msg);
-			std::cout << "received args: " << json.dump(false) << std::endl;
-
-		} catch ( const JSON::exception& e ) {
-			std::cout << "problem parsing:\n" << msg << "/nerror: " << e.what() << std::endl;
-		}
-
-	} else std::cout << "no arguments provided" << std::endl;
-
-	result = "{\"test\":" + json.dump(false) + "}";
+	result = "{\"test\":" + msg.dump(false) + "}";
 
 	return 0;
 }
 
-int ubus_test2(const std::string& method, const std::string& msg, std::string& result) {
+int ubus_test2(const std::string& method, const JSON& msg, JSON& result) {
 
-	JSON json;
-	json["result"] = true;
-	result = json.dump(false);
-
+	result["result"] = true;
 	std::cout << "\ncall to ubus_test2 with method " << method << std::endl;
 
 	return 0;

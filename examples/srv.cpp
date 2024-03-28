@@ -17,6 +17,7 @@ int main(const int argc, const char **argv) {
 		return e.code();
 	}
 /*
+	// independent version
 	try {
 		srv -> add_object("ubus_test", {
 
@@ -43,6 +44,7 @@ int main(const int argc, const char **argv) {
 	}
 */
 
+	// batch mode
 	try {
 		srv -> add_objects({{
 			"ubus_test", {
