@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <map>
 #include <functional>
 
 extern "C" {
@@ -38,12 +39,11 @@ namespace ubus {
 
 		protected:
 
-			ubus_object_type t;
-			ubus_object o;
+			std::vector<ubus_object_type> t;
+			std::vector<ubus_object> o;
 			std::vector<ubus_object_type> types;
 			std::vector<ubus_object> objects;
 			std::vector<std::vector<ubus_method> > methods;
-			uint32_t next_id = 0;
 
 		public:
 
@@ -52,7 +52,8 @@ namespace ubus {
 			service(std::string ubus_socket = "");
 			~service();
 
-			void add_object(const std::string name, const std::vector<ubus_method> &methods);
+			void add_object(const std::string& name, const std::vector<ubus_method>& methods);
+			void add_objects(const std::map<const std::string, const std::vector<ubus_method>>& objects);
 	};
 
 }

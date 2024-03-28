@@ -59,3 +59,14 @@ int ubus_test(const std::string& method, const std::string& msg, std::string& re
 
 	return 0;
 }
+
+int ubus_test2(const std::string& method, const std::string& msg, std::string& result) {
+
+	JSON json;
+	json["result"] = true;
+	result = json.dump(false);
+
+	std::cout << "\ncall to ubus_test2 with method " << method << std::endl;
+
+	return 0;
+}
