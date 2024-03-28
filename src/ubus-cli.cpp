@@ -28,8 +28,6 @@ void my_recv(struct ubus_request *req, int type, struct blob_attr *msg) {
 
 void ubus::client::call(const std::string &obj, const std::string &cmd, std::string &result, const std::string &args) {
 
-	std::lock_guard<std::mutex> guard(this -> m);
-
 	uint32_t id;
 
 	if ( int ret = ubus_lookup_id(this -> ctx, obj.c_str(), &id); ret != 0 )
