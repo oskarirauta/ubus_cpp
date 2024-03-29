@@ -22,14 +22,16 @@ extern "C" {
 		static_assert(std::is_same_v<decltype(f), int(const std::string&, const JSON&, JSON&)>, \
 			"function type does not match, function type must be int(const std::string&, const JSON&, JSON&)"); \
 		\
-		JSON _msg, _ret; \
+		JSON _msg, _ret = JSON::Object(); \
 		\
 		if ( blob_len(msg) > 0 ) { \
 			std::string _msg_str = std::string(blobmsg_format_json(msg, true)); \
 			if ( !_msg_str.empty()) \
 				try { \
 					_msg = JSON::parse(_msg_str); \
-				} catch (...) {} \
+				} catch (...) { \
+					_msg = JSON::Object(); \
+				} \
 		} \
 		\
 		int code = f(std::string(method), _msg, _ret); \
