@@ -19,6 +19,9 @@ extern "C" {
 	.name = n, \
 	.handler = [](ubus_context* ctx, ubus_object* obj, ubus_request_data* req, const char* method, blob_attr* msg) { \
 		\
+		static_assert(std::is_same_v<decltype(f), int(const std::string&, const JSON&, JSON&)>, \
+			"function type does not match, function type must be int(const std::string&, const JSON&, JSON&)"); \
+		\
 		JSON _msg, _ret; \
 		\
 		if ( blob_len(msg) > 0 ) { \
