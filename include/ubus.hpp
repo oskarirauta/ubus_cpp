@@ -88,8 +88,6 @@ namespace ubus {
 
 		protected:
 
-			std::vector<ubus_object_type> t;
-			std::vector<ubus_object> o;
 			std::vector<ubus_object_type> types;
 			std::vector<ubus_object> objects;
 			std::vector<std::vector<ubus_method> > methods;

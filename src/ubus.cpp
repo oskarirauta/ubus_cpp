@@ -22,21 +22,21 @@ void ubus::service::add_object(const std::string& name, const std::vector<ubus_m
 
 	this -> methods.push_back(methods);
 
-	this -> t.push_back((ubus_object_type) {
+	this -> types.push_back((ubus_object_type) {
 		.name = name.c_str(),
 		.id = 0,
 		.methods = &this -> methods.back()[0],
 		.n_methods = (int)this -> methods.back().size()
 	});
 
-	this -> o.push_back((ubus_object) {
+	this -> objects.push_back((ubus_object) {
 		.name = name.c_str(),
-		.type = &this -> t.back(),
+		.type = &this -> types.back(),
 		.methods = &this -> methods.back()[0],
 		.n_methods = (int)this -> methods.back().size()
 	});
 
-	if ( int ret = ubus_add_object(this -> ctx, &this -> o.back()); ret != 0 )
+	if ( int ret = ubus_add_object(this -> ctx, &this -> objects.back()); ret != 0 )
 		throw ubus::exception(ubus_strerror(ret), ret);
 }
 
@@ -46,21 +46,21 @@ void ubus::service::add_objects(const std::map<const std::string, const std::vec
 
 		this -> methods.push_back(obj.second);
 
-		this -> t.push_back((ubus_object_type) {
+		this -> types.push_back((ubus_object_type) {
 			.name = obj.first.c_str(),
 			.id = 0,
 			.methods = &this -> methods.back()[0],
 			.n_methods = (int)this -> methods.back().size()
 		});
 
-		this -> o.push_back((ubus_object) {
+		this -> objects.push_back((ubus_object) {
 			.name = obj.first.c_str(),
-			.type = &this -> t.back(),
+			.type = &this -> types.back(),
 			.methods = &this -> methods.back()[0],
 			.n_methods = (int)this -> methods.back().size()
 		});
 
-		if ( int ret = ubus_add_object(this -> ctx, &this -> o.back()); ret != 0 )
+		if ( int ret = ubus_add_object(this -> ctx, &this -> objects.back()); ret != 0 )
 			throw ubus::exception(ubus_strerror(ret), ret);
 	}
 }
