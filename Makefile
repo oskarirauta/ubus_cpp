@@ -10,26 +10,21 @@ UBUSCPP_DIR:=.
 include Makefile.inc
 include json/Makefile.inc
 
-world: srv cli
+world: server client
 
 $(shell mkdir -p objs)
 
-objs/ubus_funcs.o: examples/ubus_funcs.cpp
+objs/main.o: main.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<;
 
-objs/cli.o: examples/cli.cpp
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<;
-
-objs/srv.o: examples/srv.cpp
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<;
-
-srv: $(JSON_OBJS) $(UBUS_OBJS) objs/ubus_funcs.o objs/srv.o
+server: $(JSON_OBJS) $(UBUS_OBJS) objs/main.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -L. $(UBUS_LIBS) $^ -o $@;
 
-cli: $(JSON_OBJS) $(UBUS_OBJS) objs/cli.o
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -L. $(UBUS_LIBS) $^ -o $@;
+client: server
+	ln -s server client
 
 .PHONY: clean
 clean:
 	@rm -rf objs
-	@rm -f cli srv
+	@rm -f server
+	@rm -f client

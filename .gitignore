@@ -33,5 +33,5 @@ objs/*.o
 *.app
 
 objs
-srv
-cli
+server
+client
