@@ -4,10 +4,19 @@
 
 int hello_func(const std::string& s, const JSON& req, JSON& res) {
 
-        std::cout << "executed function " << s << std::endl;
 	res["hello"] = "world";
-	std::cout << "sending back result:\n" << res << std::endl;
+	std::cout << "\nexecuted function" << s << "\n" <<
+			"sending back result:\n" << res << std::endl;
         return 0;
+}
+
+void periodic_task(uloop_timeout *t) {
+
+	std::cout << "\nexecuted periodic task\n" <<
+			"task repeats every 5 seconds" << std::endl;
+
+	uloop_timeout_set(t, 5000);
+	uloop_timeout_add(t);
 }
 
 int server_main() {
@@ -32,6 +41,10 @@ int server_main() {
 	} catch ( const ubus::exception& e ) {
 		std::cout << "failed to add object 'ubus_test' with methods hello and foo, reason:\n" << e.what() << std::endl;
 	}
+
+	uloop_timeout task = { .cb = periodic_task };
+	uloop_timeout_set(&task, 1000);
+	uloop_timeout_add(&task);
 
 	uloop_run();
 	uloop_done();
