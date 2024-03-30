@@ -10,8 +10,6 @@ ubus::client::client(std::string ubus_socket, int timeout) {
 
 	if ( !this -> ctx )
 		throw ubus::exception("failed to connect to ubus socket " + this -> _sockfd, -1);
-
-	ubus_add_uloop(this -> ctx);
 }
 
 ubus::client::~client() {
