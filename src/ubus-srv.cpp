@@ -1,3 +1,7 @@
+extern "C" {
+#include <libubox/blobmsg.h>
+}
+
 #include "ubus.hpp"
 
 static std::map<std::string, std::map<std::string, std::function<int(const std::string&, const JSON&, JSON&)>>> ubus_methods;
@@ -64,6 +68,19 @@ const std::string& ubus::service::sockfd() {
 	return this -> _sockfd;
 }
 
+static const auto json_type_to_blobmsg_type(const JSON::TYPE& t) {
+
+	switch ( t ) {
+		case JSON::TYPE::OBJECT: return BLOBMSG_TYPE_TABLE;
+		case JSON::TYPE::ARRAY: return BLOBMSG_TYPE_ARRAY;
+		case JSON::TYPE::STRING: return BLOBMSG_TYPE_STRING;
+		case JSON::TYPE::FLOAT: return BLOBMSG_TYPE_DOUBLE;
+		case JSON::TYPE::INT: return BLOBMSG_TYPE_INT32;
+		case JSON::TYPE::BOOL: return BLOBMSG_TYPE_BOOL;
+		default: return BLOBMSG_TYPE_UNSPEC;
+	}
+}
+
 void ubus::service::add_object(const std::string& name, const std::vector<ubus::METHOD>& methods) {
 
 	std::vector<ubus_method> _methods;
@@ -89,23 +106,8 @@ void ubus::service::add_object(const std::string& name, const std::vector<ubus::
 
 		if ( !m.hints.empty()) {
 
-			for ( const std::pair<std::string, JSON::TYPE>& p : m.hints ) {
-
-				auto _t = BLOBMSG_TYPE_UNSPEC;
-
-				switch ( p.second ) {
-					case JSON::TYPE::STRING:
-						_t = BLOBMSG_TYPE_STRING;
-						break;
-					case JSON::TYPE::INT:
-						_t = BLOBMSG_TYPE_INT32;
-						break;
-					default:
-						_t = BLOBMSG_TYPE_UNSPEC;
-				}
-
-				policy.push_back({ .name = p.first.c_str(), .type = _t });
-			}
+			for ( const std::pair<std::string, JSON::TYPE>& p : m.hints )
+				policy.push_back({ .name = p.first.c_str(), .type = json_type_to_blobmsg_type(p.second) });
 
 			_m.policy = policy.data();
 			_m.n_policy = policy.size();

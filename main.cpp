@@ -36,7 +36,8 @@ int server_main() {
 	try {
 		srv -> add_object("ubus_test", {
 				{ .name = "hello", .cb = hello_func },
-				{ .name = "foo", .cb = [](const std::string& s, const JSON& req, JSON& res) { res["foo"] = "bar"; return 0;  }}
+				{ .name = "foo", .cb = [](const std::string& s, const JSON& req, JSON& res) { res["foo"] = "bar"; return 0;  }},
+				{ .name = "hinted", .hints = {{ "number", JSON::TYPE::INT }, { "string", JSON::TYPE::STRING }}}
 		});
 	} catch ( const ubus::exception& e ) {
 		std::cout << "failed to add object 'ubus_test' with methods hello and foo, reason:\n" << e.what() << std::endl;
