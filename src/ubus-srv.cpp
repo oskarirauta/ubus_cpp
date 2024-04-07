@@ -133,7 +133,8 @@ void ubus::service::add_object(const std::string& name, const std::vector<ubus::
 		.n_methods = (int)this -> methods.back().size()
 	});
 
-	ubus_add_object(this -> ctx, &this -> objects.back());
+	if ( int ret = ubus_add_object(this -> ctx, &this -> objects.back()); ret != 0 )
+		throw ubus::exception("cannot add object " + name, ret);
 }
 
 void ubus::service::add_objects(const std::map<std::string, std::vector<ubus::METHOD>>& objects) {
