@@ -41,6 +41,8 @@ int server_main() {
 		});
 	} catch ( const ubus::exception& e ) {
 		std::cout << "failed to add object 'ubus_test' with methods hello and foo, reason:\n" << e.what() << std::endl;
+		delete srv;
+		return e.code();
 	}
 
 	uloop_timeout task = { .cb = periodic_task };
@@ -74,9 +76,11 @@ int client_main() {
 	} catch ( const ubus::exception& e ) {
 		std::cout << "failed to call ubus_test with command hello, reason:\n" <<
 			e.what() << "\n\nAre you sure, you are running server while starting client test?" << std::endl;
+		delete cli;
 		return 1;
 	}
 
+	delete cli;
 	return 0;
 }
 
