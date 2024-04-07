@@ -27,3 +27,6 @@ running a ubus service; you cannot run a separate client, not even through
 another thread, atleast it didn't work on a jthread when I tested.
 You can though have both ways; but service cannot be running while performing
 a client connection.
+
+There is a work-around for this; you could make a static library to
+perform client operations while running server - this method works.
