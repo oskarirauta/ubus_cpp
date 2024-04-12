@@ -3,11 +3,11 @@ INCLUDES += -I./$(UBUSCPP_DIR)/include
 UBUS_LIBS:=-lubox -lblobmsg_json -lubus -luci
 
 UBUS_OBJS:= \
-	objs/ubus-server.o \
-	objs/ubus-client.o
+	objs/ubus.o \
+	objs/uloop.o
 
-objs/ubus-server.o: $(UBUSCPP_DIR)/src/ubus-srv.cpp
+objs/ubus.o: $(UBUSCPP_DIR)/src/ubus.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<;
 
-objs/ubus-client.o: $(UBUSCPP_DIR)/src/ubus-cli.cpp
+objs/uloop.o: $(UBUSCPP_DIR)/src/uloop.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<;

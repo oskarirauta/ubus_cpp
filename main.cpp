@@ -2,56 +2,128 @@
 #include <filesystem>
 #include "ubus.hpp"
 
-int hello_func(const std::string& s, const JSON& req, JSON& res) {
+ubus* srv;
+int renew = 2000;
+
+int hello_func(const std::string& method, const JSON& req, JSON& res) {
 
 	res["hello"] = "world";
-	std::cout << "\nexecuted function" << s << "\n" <<
+	std::cout << "\nexecuted function " << method << "\n" <<
 			"sending back result:\n" << res << std::endl;
         return 0;
 }
 
-void periodic_task(uloop_timeout *t) {
+int exit_func(const std::string& method, const JSON& req, JSON& res) {
 
-	std::cout << "\nexecuted periodic task\n" <<
-			"task repeats every 5 seconds" << std::endl;
+	res["exiting"] = "now";
+	std::cout << "exiting uloop" << std::endl;
+	uloop::exit();
+	return 0;
+}
 
-	uloop_timeout_set(t, 5000);
-	uloop_timeout_add(t);
+int hinted_func(const std::string& method, const JSON& req, JSON& res) {
+
+	if ( req.contains("value") && req["value"].convertible_to(JSON::STRING)) {
+		res["value"] = req["value"];
+		return 0;
+	}
+
+	if ( req.empty() || ( !req.contains("number" ) && !req.contains("string"))) {
+
+		res["error"] = "hinted func needs either a number or string variable, or both";
+		return 0;
+	}
+
+	int n;
+	std::string s;
+	bool number = false;
+	bool string = false;
+
+	if ( req.contains("number") && !req["number"].convertible_to(JSON::INT)) {
+
+		res["error"] = "number variable is not convertible to numeric value";
+		return 0;
+
+	} else if ( req.contains("number")) {
+		n = req["number"].to_int();
+		number = true;
+	}
+
+	if ( req.contains("string") && !req["string"].convertible_to(JSON::STRING)) {
+
+		res["error"] = "string variable is not convertible to text value";
+		return 0;
+
+	} else if ( req.contains("string")) {
+		s = req["string"].to_string();
+		string = true;
+		if ( s.empty()) s = "(empty string)";
+	}
+
+	if ( string )
+		res["string"] = s;
+
+	if ( number )
+		res["number"] = n;
+
+	return 0;
+}
+
+int my_task() {
+
+	if ( renew == 500 ) {
+
+		std::cout << "executed my task last time, not renewing" << std::endl;
+		return 0;
+	}
+
+	std::cout << "executed my task, firing next time in " << renew - 500 << "ms" << std::endl;
+	renew -= 500;
+	return renew;
+
+}
+
+int call_task() {
+
+	try {
+		JSON j = srv -> call("system", "board");
+		std::cout << "ubus call to system with command board:\n" << j << std::endl;
+	} catch ( const ubus::exception& e ) {
+		std::cout << "failed to perform ubus call to system with command board, reason:\n" << e.what() << std::endl;
+	}
+
+	return 0;
 }
 
 int server_main() {
 
-	std::cout << "ubus server test" << std::endl;
+	std::cout << "ubus server test\n" << std::endl;
 
-	uloop_init();
-	ubus::service *srv;
-
-	try {
-		srv = new ubus::service;
-	} catch ( const ubus::exception& e ) {
-		std::cout << "failed to construct new ubus service, reason:\n" << e.what() << std::endl;
-		return 1;
-	}
+	uloop::task::add(my_task, 1000);
+	uloop::task::add(call_task, 1250);
 
 	try {
 		srv -> add_object("ubus_test", {
-				{ .name = "hello", .cb = hello_func },
-				{ .name = "foo", .cb = [](const std::string& s, const JSON& req, JSON& res) { res["foo"] = "bar"; return 0;  }},
-				{ .name = "hinted", .hints = {{ "number", JSON::TYPE::INT }, { "string", JSON::TYPE::STRING }}}
+			{ .name = "hello", .cb = hello_func },
+			{ .name = "hello1", .cb = hello_func },
+			{ .name = "hello2", .cb = hello_func },
+			{ .name = "hello3", .cb = hello_func },
+			{ .name = "hinted", .cb = hinted_func, .hints = {{ "number", JSON::TYPE::INT }, { "string", JSON::TYPE::STRING }}},
+			{ .name = "hinted2", .cb = hinted_func, .hints = {{ "value", JSON::TYPE::STRING }}},
+			{ .name = "exit", .cb = exit_func }
 		});
+
+		srv -> add_object("ubus_test2", {
+			{ .name = "hello", .cb = hello_func },
+			{ .name = "no_cb" }
+		});
+
 	} catch ( const ubus::exception& e ) {
-		std::cout << "failed to add object 'ubus_test' with methods hello and foo, reason:\n" << e.what() << std::endl;
-		delete srv;
-		return e.code();
+		std::cout << "failed to add ubus object, reason:\n" << e.what() << std::endl;
+		return 1;
 	}
 
-	uloop_timeout task = { .cb = periodic_task };
-	uloop_timeout_set(&task, 1000);
-	uloop_timeout_add(&task);
-
-	uloop_run();
-	uloop_done();
-	delete srv;
+	uloop::run();
 
 	return 0;
 }
@@ -60,35 +132,37 @@ int client_main() {
 
 	std::cout << "ubus client test\n" << std::endl;
 
-	//uloop_init();
-	ubus::client *cli;
-
 	try {
-		cli  = new ubus::client;
-	} catch ( const ubus::exception& e ) {
-		std::cout << "failed to construct ubus::client, reason:\n" << e.what() << std::endl;
-		return 1;
-	}
-
-	try {
-		JSON j = cli -> call("ubus_test", "hello");
+		JSON j = srv -> call("ubus_test", "hello");
 		std::cout << "result of json call to ubus_test with command hello:\n" << j << std::endl;
+
 	} catch ( const ubus::exception& e ) {
+
 		std::cout << "failed to call ubus_test with command hello, reason:\n" <<
 			e.what() << "\n\nAre you sure, you are running server while starting client test?" << std::endl;
-		delete cli;
 		return 1;
 	}
 
-	delete cli;
 	return 0;
 }
 
 int main(int argc, char **argv) {
 
+	try {
+		srv = new ubus;
+	} catch ( const ubus::exception& e ) {
+		std::cout << "failed to create ubus context, reason:\n" << e.what() << std::endl;
+		return 1;
+	}
+
+	int res;
 	std::filesystem::path cmd(argv[0]);
 
 	if ( cmd.filename() == "client" )
-		return client_main();
-	else return server_main();
+		res = client_main();
+	else res = server_main();
+
+	delete srv;
+	std::cout << "exiting.." << std::endl;
+	return res;
 }

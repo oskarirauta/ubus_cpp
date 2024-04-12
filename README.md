@@ -8,9 +8,10 @@ More functions are available if you use ubus C library without wrapper, but
 using this library, makes interaction with ubus very simple.
 
 ### usage
-Check service and client example programs.
+Check provided service and client example program.
 To execute these programs, you will either need to be root, or execute with
-sudo. For client program to work, srv service needs to be running on background.
+sudo. For client program to work, server needs to be running on background,
+or in another session.
 
 ### json
 [json_cpp](https://github.com/oskarirauta/json_cpp) is used for json operations.
@@ -21,12 +22,6 @@ requires pretty new C++ standard as a caveat - or might not be to everyone's
 liking.
 
 ### notes
-Same program cannot run 2 simulatenous ubus connections, not through same
-socket, or through separate contexts. This means that if your program is
-running a ubus service; you cannot run a separate client, not even through
-another thread, atleast it didn't work on a jthread when I tested.
-You can though have both ways; but service cannot be running while performing
-a client connection.
-
-There is a work-around for this; you could make a static library to
-perform client operations while running server - this method works.
+version 3 fixes problems with version 2 with quite less changes to
+code using this library. New version also allows simultaneous client
+connections from uloop "tasks".
