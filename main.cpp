@@ -45,7 +45,7 @@ int hinted_func(const std::string& method, const JSON& req, JSON& res) {
 		return 0;
 
 	} else if ( req.contains("number")) {
-		n = req["number"].to_int();
+		n = req["number"].to_number();
 		number = true;
 	}
 
