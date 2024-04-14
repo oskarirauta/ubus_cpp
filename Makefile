@@ -4,7 +4,8 @@ CXX?=g++
 CXXFLAGS?=--std=c++17 -Wall -fPIC
 LDFLAGS?=-L/lib -L/usr/lib
 
-INCLUDES+= -I./examples/include -I./jsoncpp/include
+OBJS:= \
+	objs/main.o
 
 UBUSCPP_DIR:=.
 include Makefile.inc
@@ -17,8 +18,8 @@ $(shell mkdir -p objs)
 objs/main.o: main.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<;
 
-server: $(JSON_OBJS) $(UBUS_OBJS) objs/main.o
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -L. $(UBUS_LIBS) $^ -o $@;
+server: $(JSON_OBJS) $(UBUS_OBJS) $(OBJS)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@;
 
 client: server
 	ln -s server client
