@@ -22,10 +22,8 @@ server: $(JSON_OBJS) $(UBUS_OBJS) $(OBJS)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@;
 
 client: server
-	ln -s server client
+	@ln -s server client
 
 .PHONY: clean
 clean:
-	@rm -rf objs
-	@rm -f server
-	@rm -f client
+	@rm -rf objs client server
