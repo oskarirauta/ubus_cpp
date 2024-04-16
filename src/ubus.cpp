@@ -100,8 +100,6 @@ static const auto json_type_to_blobmsg_type(const JSON::TYPE& t) {
 
 ubus::Object::Object(const std::string& name, const std::vector<ubus::method>& methods) {
 
-//	std::vector<std::vector<blobmsg_policy>> policy;
-
 	for ( const auto& method : methods ) {
 
 		this -> methods.push_back(ubus_method());
