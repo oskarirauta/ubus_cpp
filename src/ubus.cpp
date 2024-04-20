@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 extern "C" {
 #include <libubox/blobmsg_json.h>
 #include <libubus.h>
@@ -28,6 +30,7 @@ struct ubus::Object {
 	std::map<std::string, std::vector<blobmsg_policy>> policy;
 
 	Object(const std::string& name, const std::vector<ubus::method>& methods);
+	virtual ~Object();
 };
 
 static int common_handler(ubus_context *ctx, ubus_object *obj, ubus_request_data *req, const char *method, blob_attr *msg) {
@@ -103,7 +106,7 @@ ubus::Object::Object(const std::string& name, const std::vector<ubus::method>& m
 	for ( const auto& method : methods ) {
 
 		this -> methods.push_back(ubus_method());
-		this -> methods.back().name = method.name.c_str();
+		this -> methods.back().name = strdup(method.name.c_str());
 		this -> methods.back().handler = common_handler;
 		this -> methods.back().tags = 0;
 
@@ -112,7 +115,7 @@ ubus::Object::Object(const std::string& name, const std::vector<ubus::method>& m
 			this -> policy.emplace(method.name, std::vector<blobmsg_policy>());
 
 			for ( const std::pair<std::string, JSON::TYPE>& p: method.hints )
-				this -> policy[method.name].push_back({ .name = p.first.c_str(), .type = json_type_to_blobmsg_type(p.second) });
+				this -> policy[method.name].push_back({ .name = strdup(p.first.c_str()), .type = json_type_to_blobmsg_type(p.second) });
 
 			this -> methods.back().policy = this -> policy[method.name].data();
 			this -> methods.back().n_policy = this -> policy[method.name].size();
@@ -122,16 +125,30 @@ ubus::Object::Object(const std::string& name, const std::vector<ubus::method>& m
 	}
 
 	this -> type = std::unique_ptr<ubus_object_type>(new ubus_object_type);
-	this -> type -> name = name.c_str();
+	this -> type -> name = strdup(name.c_str());
 	this -> type -> id = 0;
 	this -> type -> methods = &this -> methods[0];
 	this -> type -> n_methods = (int)this -> methods.size();
 
 	this -> object = std::unique_ptr<ubus_object>(new ubus_object);
-	this -> object -> name = name.c_str();
+	this -> object -> name = strdup(name.c_str());
 	this -> object -> type = this -> type.get();
 	this -> object -> methods = &this -> methods[0];
 	this -> object -> n_methods = (int)this -> methods.size();
+}
+
+ubus::Object::~Object() {
+
+	free((void*)this -> object -> name);
+	free((void*)this -> type -> name);
+
+	for ( auto m = this -> policy.begin(); m != this -> policy.end(); m++ )
+		for ( auto p = m -> second.begin(); p != m -> second.end(); p++ )
+			free((void*)p -> name);
+
+	for ( auto m = this -> methods.begin(); m != this -> methods.end(); m++ )
+		free((void*)m -> name);
+
 }
 
 ubus::ubus(const std::string& socket, int timeout) {
