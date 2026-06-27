@@ -1,6 +1,6 @@
 UBUSCPP_DIR?=./ubus
 INCLUDES += -I$(UBUSCPP_DIR)/include
-LDFLAGS += -lubox -lblobmsg_json -lubus -luci
+LIBS += -lubox -lblobmsg_json -lubus
 
 UBUS_OBJS:= \
 	objs/ubus.o \

@@ -19,7 +19,7 @@ objs/main.o: main.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<;
 
 server: $(JSON_OBJS) $(UBUS_OBJS) $(OBJS)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@;
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ $(LIBS) -o $@;
 
 client: server
 	@ln -s server client

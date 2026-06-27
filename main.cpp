@@ -1,16 +1,32 @@
 #include <iostream>
 #include <filesystem>
+#include <unistd.h>
 #include "ubus.hpp"
 
 ubus* srv;
 int renew = 2000;
 
+// --- synchronous method: fill res, it is sent when you return -----------------
 int hello_func(const std::string& method, const JSON& req, JSON& res) {
 
 	res["hello"] = "world";
-	std::cout << "\nexecuted function " << method << "\n" <<
-			"sending back result:\n" << res << std::endl;
-        return 0;
+	std::cout << "\nexecuted function " << method << "\nsending back result:\n" << res << std::endl;
+	return 0;
+}
+
+// --- deferred method: reply later (here: after 500ms) without blocking uloop ---
+void slow_func(const std::string& method, const JSON& req, ubus::request r) {
+
+	std::cout << "\nexecuted deferred function " << method << ", replying in 500ms" << std::endl;
+
+	// Copy the request handle into a one-shot task and reply when it fires.
+	uloop::task::add([r]() -> int {
+		JSON res;
+		res["done"] = true;
+		res["note"] = "this reply was deferred";
+		r.reply(res);
+		return 0;
+	}, 500);
 }
 
 int exit_func(const std::string& method, const JSON& req, JSON& res) {
@@ -21,101 +37,41 @@ int exit_func(const std::string& method, const JSON& req, JSON& res) {
 	return 0;
 }
 
-int hinted_func(const std::string& method, const JSON& req, JSON& res) {
+// --- asynchronous call: query a service without blocking the loop -------------
+int async_task() {
 
-	if ( req.contains("value") && req["value"].convertible_to(JSON::STRING)) {
-		res["value"] = req["value"];
-		return 0;
-	}
-
-	if ( req.empty() || ( !req.contains("number" ) && !req.contains("string"))) {
-
-		res["error"] = "hinted func needs either a number or string variable, or both";
-		return 0;
-	}
-
-	int n;
-	std::string s;
-	bool number = false;
-	bool string = false;
-
-	if ( req.contains("number") && !req["number"].convertible_to(JSON::INT)) {
-
-		res["error"] = "number variable is not convertible to numeric value";
-		return 0;
-
-	} else if ( req.contains("number")) {
-		n = req["number"].to_number();
-		number = true;
-	}
-
-	if ( req.contains("string") && !req["string"].convertible_to(JSON::STRING)) {
-
-		res["error"] = "string variable is not convertible to text value";
-		return 0;
-
-	} else if ( req.contains("string")) {
-		s = req["string"].to_string();
-		string = true;
-		if ( s.empty()) s = "(empty string)";
-	}
-
-	if ( string )
-		res["string"] = s;
-
-	if ( number )
-		res["number"] = n;
-
-	return 0;
+	srv -> call_async("system", "board", JSON(), [](const JSON& result, bool ok) {
+		std::cout << "\nasync call to system.board (ok=" << ( ok ? "true" : "false" ) << "):\n"
+		          << result << std::endl;
+	});
+	return 0;   // one-shot
 }
 
-int my_task() {
+int event_task() {
 
-	if ( renew == 500 ) {
-
-		std::cout << "executed my task last time, not renewing" << std::endl;
-		return 0;
-	}
-
-	std::cout << "executed my task, firing next time in " << renew - 500 << "ms" << std::endl;
-	renew -= 500;
-	return renew;
-
-}
-
-int call_task() {
-
-	try {
-		JSON j = srv -> call("system", "board");
-		std::cout << "ubus call to system with command board:\n" << j << std::endl;
-	} catch ( const ubus::exception& e ) {
-		std::cout << "failed to perform ubus call to system with command board, reason:\n" << e.what() << std::endl;
-	}
-
-	return 0;
+	JSON data;
+	data["pid"] = (long long)getpid();
+	srv -> send_event("test.started", data);
+	std::cout << "\nsent event test.started" << std::endl;
+	return 0;   // one-shot
 }
 
 int server_main() {
 
 	std::cout << "ubus server test\n" << std::endl;
 
-	uloop::task::add(my_task, 1000);
-	uloop::task::add(call_task, 1250);
+	// listen for any event under "test."
+	srv -> add_event_handler("test.*", [](const std::string& id, const JSON& data) {
+		std::cout << "\nreceived event " << id << ":\n" << data << std::endl;
+	});
 
 	try {
 		srv -> add_object("ubus_test", {
 			{ .name = "hello", .cb = hello_func },
-			{ .name = "hello1", .cb = hello_func },
-			{ .name = "hello2", .cb = hello_func },
-			{ .name = "hello3", .cb = hello_func },
-			{ .name = "hinted", .cb = hinted_func, .hints = {{ "number", JSON::TYPE::INT }, { "string", JSON::TYPE::STRING }}},
-			{ .name = "hinted2", .cb = hinted_func, .hints = {{ "value", JSON::TYPE::STRING }}},
-			{ .name = "exit", .cb = exit_func }
-		});
-
-		srv -> add_object("ubus_test2", {
-			{ .name = "hello", .cb = hello_func },
-			{ .name = "no_cb" }
+			{ .name = "slow",  .dcb = slow_func },                       // deferred reply
+			{ .name = "hinted", .cb = hello_func,
+			  .hints = {{ "number", JSON::TYPE::INT }, { "string", JSON::TYPE::STRING }}},
+			{ .name = "exit",  .cb = exit_func }
 		});
 
 	} catch ( const ubus::exception& e ) {
@@ -123,8 +79,11 @@ int server_main() {
 		return 1;
 	}
 
-	uloop::run();
+	// fire an async call and emit an event shortly after startup
+	uloop::task::add(async_task, 500);
+	uloop::task::add(event_task, 800);
 
+	uloop::run();
 	return 0;
 }
 
@@ -134,12 +93,11 @@ int client_main() {
 
 	try {
 		JSON j = srv -> call("ubus_test", "hello");
-		std::cout << "result of json call to ubus_test with command hello:\n" << j << std::endl;
+		std::cout << "result of call to ubus_test.hello:\n" << j << std::endl;
 
 	} catch ( const ubus::exception& e ) {
-
-		std::cout << "failed to call ubus_test with command hello, reason:\n" <<
-			e.what() << "\n\nAre you sure, you are running server while starting client test?" << std::endl;
+		std::cout << "failed to call ubus_test.hello, reason:\n" << e.what()
+		          << "\n\nIs the server running in another session?" << std::endl;
 		return 1;
 	}
 
