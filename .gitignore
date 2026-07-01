@@ -35,3 +35,5 @@ objs/*.o
 objs
 server
 client
+subscriber
+notifier

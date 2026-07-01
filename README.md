@@ -4,7 +4,8 @@
 
 A small, modern C++ wrapper around OpenWrt's **ubus** (the libubus/libubox C API).
 It lets you expose ubus objects, call other services, broadcast and listen to
-events, and reply to requests asynchronously - without touching the C API directly.
+events, subscribe to object notifications, reply to requests asynchronously,
+and batch multiple calls together — without touching the C API directly.
 
 JSON is handled with [json_cpp](https://github.com/oskarirauta/json_cpp); every
 argument and result is a `JSON` value.
@@ -13,7 +14,10 @@ argument and result is a `JSON` value.
 
 - Register ubus **objects** with synchronous **or deferred** method handlers.
 - **Synchronous** and **asynchronous** calls to other services.
+- **Batch calls**: execute multiple synchronous calls in one go.
 - **Events**: broadcast (`send_event`) and listen (`add_event_handler`).
+- **Notifications**: subscribe to an object's notifications (`subscribe`) and
+  send notifications to your own subscribers (`notify`).
 - **uloop** task scheduling (one-shot or self-renewing timers).
 - **Auto-reconnect**: survives a `ubusd` restart and re-registers everything.
 
@@ -131,6 +135,10 @@ whenever the work is done. Replying more than once is a no-op.
 // synchronous: blocks until reply/timeout; throws ubus::exception on failure
 JSON call(const std::string& obj, const std::string& cmd, const JSON& args = JSON()) const;
 
+// batch: execute multiple calls sequentially. Returns results in order.
+// If any call fails, throws ubus::exception.
+std::vector<JSON> call_batch(const std::vector<std::tuple<std::string, std::string, JSON>>& calls) const;
+
 // asynchronous: returns immediately; cb fires from uloop (ok=false on error)
 void call_async(const std::string& obj, const std::string& cmd, const JSON& args,
                 std::function<void(const JSON& result, bool ok)> cb);
@@ -138,6 +146,12 @@ void call_async(const std::string& obj, const std::string& cmd, const JSON& args
 
 ```cpp
 JSON board = srv->call("system", "board");          // sync
+
+auto results = srv->call_batch({
+    { "system", "board", JSON() },
+    { "system", "info",  JSON() },
+    { "network.interface.lan", "status", JSON() },
+});
 
 srv->call_async("system", "board", JSON(), [](const JSON& res, bool ok) {
     if (ok) std::cout << res["model"].to_string() << "\n";
@@ -162,6 +176,46 @@ srv->add_event_handler("network.*", [](const std::string& id, const JSON& data) 
 srv->send_event("my.event", JSON());
 ```
 
+### Notifications (subscriber / notifier)
+
+Objects can push notifications to their subscribers. Other processes can
+subscribe to these notifications without making repeated polling calls.
+Notifier — inside an object that has subscribers:
+
+```cpp
+
+// Send a notification to all current subscribers of 'obj_name'.
+// 'type' is an arbitrary string identifying the notification.
+// timeout < 0 means wait forever, 0 non-blocking, >0 ms timeout.
+void notify(const std::string& obj_name, const std::string& type,
+            const JSON& data = JSON(), int timeout = -1) const;
+```
+
+```cpp
+
+// In a method handler or a uloop task:
+srv->notify("svc", "update", JSON({ {"progress", 42} }));
+Subscriber — listen to another object's notifications:
+```
+
+```cpp
+
+// Subscribe to an object's notifications.
+// cb(type, data) fires for every notification received.
+// The returned handle unsubscribes automatically when destroyed.
+subscription subscribe(const std::string& obj_name,
+                       std::function<void(const std::string& type, const JSON& data)> cb);
+```
+
+```cpp
+auto sub = srv->subscribe("svc", [](const std::string& type, const JSON& data) {
+    std::cout << "notification " << type << ": " << data << "\n";
+});
+
+// ... later, or let it go out of scope to unsubscribe automatically:
+// sub = ubus::subscription();   // explicit unsubscribe
+```
+
 ### uloop
 
 ```cpp
@@ -169,6 +223,7 @@ uloop::task::add(std::function<int()> task, int delay_ms = 0);  // return >0 ms 
 void uloop::run();                                              // run the loop
 void uloop::exit(int timeout = 50);                             // stop the loop
 bool uloop::is_running();
+bool uloop::is_initialized();
 ```
 
 ### Errors
@@ -177,9 +232,27 @@ bool uloop::is_running();
 `.code()`). Asynchronous paths report failure through their callback's `ok` flag
 instead of throwing.
 
+### Examples
+
+
+
+See the examples/ directory for complete, buildable programs:
+Table
+
+| File             | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| `main.cpp`       | Registers an object with sync and deferred methods.          |
+|                  | Calls the server object synchronously and asynchronously.    |
+| `subscriber.cpp` | Subscribes to another object's notifications.                |
+| `notifier.cpp`   | Registers an object and pushes notifications to subscribers. |
+
 ## Notes
 
 - Earlier (v1.x) the API used JSON strings so you could plug in any JSON library;
   from v2 it uses json_cpp. Use [release 1.0.0](https://github.com/oskarirauta/ubus_cpp/releases/tag/1.0.0)
   if you want the string-based API.
-- See `main.cpp` for a complete server/client example exercising every feature.
+- call_batch is implemented as sequential synchronous calls; it blocks until
+  all calls are done (or one throws). For fully parallel execution, use multiple
+  call_async calls instead.
+- Only one ubus instance may exist at a time because the C API uses a global
+  singleton internally.

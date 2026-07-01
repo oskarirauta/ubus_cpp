@@ -40,6 +40,7 @@ struct ubus::Object {
 	std::unique_ptr<ubus_object> object;
 	std::vector<ubus_method> methods;
 	std::map<std::string, std::vector<blobmsg_policy>> policy;
+	std::function<void(bool active)> subscribe_cb;
 
 	Object(const std::string& name, const std::vector<ubus::method>& methods);
 	virtual ~Object();
@@ -57,6 +58,16 @@ struct ubus::request::state {
 	ubus_request_data req;
 	bool replied = false;
 };
+
+struct ubus::subscription::state {
+	ubus_context* ctx = nullptr;
+	ubus_subscriber sub;
+	uint32_t obj_id = 0;
+	bool active = false;
+	std::function<void(const std::string&, const JSON& data)> cb;
+};
+
+static std::map<ubus_subscriber*, std::function<void(const std::string&, const JSON&)>> ubus_subscriber_cbs;
 
 // ----------------------------------------------------------- request handle ---
 void ubus::request::reply(const JSON& res, int status) const {
@@ -133,6 +144,90 @@ static int common_handler(ubus_context *ctx, ubus_object *obj, ubus_request_data
 	blob_buf_free(&b);
 
 	return 0;
+}
+
+// ----------------------------------------------------- subscriber changes ----
+void ubus::subscriber_trampoline(void* ctx, void* obj) {
+
+	ubus_context* uctx = (ubus_context*)ctx;
+	ubus_object* uobj = (ubus_object*)obj;
+
+	(void)uctx;
+	if (!ubus_singleton)
+		return;
+
+	for ( auto& o : ubus_singleton -> objects )
+		if ( o -> object.get() == uobj && o -> subscribe_cb )
+			o -> subscribe_cb(!!uobj -> has_subscribers);
+}
+
+static int notify_trampoline(ubus_context *ctx, ubus_object *obj, ubus_request_data *req,
+			      const char *method, blob_attr *msg) {
+	(void)ctx;
+	(void)obj;
+	(void)req;
+	(void)method;
+
+	ubus_subscriber* sub = (ubus_subscriber*)((char*)obj - offsetof(ubus_subscriber, obj));
+
+	auto it = ubus_subscriber_cbs.find(sub);
+	if ( it == ubus_subscriber_cbs.end() || !it -> second )
+		return 0;
+
+	JSON data = JSON::Object();
+	if ( msg && blob_len(msg) > 0 ) {
+		char *s = blobmsg_format_json(msg, true);
+		if ( s ) {
+			try { data = JSON::parse(std::string(s)); } catch ( ... ) {}
+			free(s);
+		}
+	}
+
+	it -> second(std::string(method), data);
+	return 0;
+}
+
+// --------------------------------------------------------------- subscribe ----
+ubus::subscription::~subscription() {
+
+	if ( !this -> _s || !this -> _s -> active )
+		return;
+
+	ubus_unsubscribe(this -> _s -> ctx, &this -> _s -> sub, this -> _s -> obj_id);
+	ubus_subscriber_cbs.erase(&this -> _s -> sub);
+	this -> _s -> active = false;
+}
+
+ubus::subscription ubus::subscribe(const std::string& obj_name,
+				   std::function<void(const std::string& type, const JSON& data)> cb) {
+
+	uint32_t id;
+	if ( ubus_lookup_id(this -> context -> ctx, obj_name.c_str(), &id) != 0 )
+		throw ubus::exception("subscribe failed, object not found: " + obj_name, -1);
+
+	auto st = std::make_shared<subscription::state>();
+	st -> ctx = this -> context -> ctx;
+	st -> obj_id = id;
+	st -> cb = cb;
+	st -> active = true;
+
+	memset(&st -> sub, 0, sizeof(st -> sub));
+	st -> sub.cb = notify_trampoline;
+
+	ubus_subscriber_cbs[&st -> sub] = cb;
+
+	if ( ubus_register_subscriber(this -> context -> ctx, &st -> sub) != 0 ) {
+		ubus_subscriber_cbs.erase(&st -> sub);
+		throw ubus::exception("subscribe failed, cannot register subscriber", -1);
+	}
+
+	if ( ubus_subscribe(this -> context -> ctx, &st -> sub, id) != 0 ) {
+		ubus_unregister_subscriber(this -> context -> ctx, &st -> sub);
+		ubus_subscriber_cbs.erase(&st -> sub);
+		throw ubus::exception("subscribe failed, cannot subscribe to " + obj_name, -1);
+	}
+
+	return subscription(st);
 }
 
 // ----------------------------------------------------------------- events -----
@@ -244,6 +339,7 @@ ubus::Object::Object(const std::string& name, const std::vector<ubus::method>& m
 	this -> object = std::make_unique<ubus_object>();
 	memset(this -> object.get(), 0, sizeof(ubus_object));
 	this -> object -> name = strdup(name.c_str());
+	this -> object -> subscribe_cb = (ubus_state_handler_t)subscriber_trampoline;
 	this -> object -> type = this -> type.get();
 	this -> object -> methods = this -> methods.data();
 	this -> object -> n_methods = (int)this -> methods.size();
@@ -294,7 +390,8 @@ void ubus::register_events() {
 		ubus_register_event_handler(this -> context -> ctx, &eh -> ev, eh -> pattern.c_str());
 }
 
-void ubus::add_object(const std::string& name, const std::vector<ubus::method>& methods) {
+void ubus::add_object(const std::string& name, const std::vector<ubus::method>& methods,
+		      std::function<void(bool active)> subscribe_cb) {
 
 	if ( methods.empty())
 		throw ubus::exception("no methods defined for object " + name, -1);
@@ -304,6 +401,7 @@ void ubus::add_object(const std::string& name, const std::vector<ubus::method>& 
 			throw ubus::exception("empty method names not allowed", -1);
 
 	this -> objects.push_back(std::make_unique<ubus::Object>(name, methods));
+	this -> objects.back() -> subscribe_cb = subscribe_cb;
 
 	int ret = ubus_add_object(this -> context -> ctx, this -> objects.back() -> object.get());
 
@@ -360,6 +458,18 @@ JSON ubus::call(const std::string& obj, const std::string& cmd, const JSON& args
 	JSON j;
 	try { j = JSON::parse(s); } catch ( ... ) { j = JSON::Object(); }
 	return j;
+}
+
+// ---------------------------------------------------------- batch call ----
+std::vector<JSON> ubus::call_batch(const std::vector<std::tuple<std::string, std::string, JSON>>& calls) const {
+
+	std::vector<JSON> results;
+	results.reserve(calls.size());
+
+	for ( const auto& [obj, cmd, args] : calls )
+		results.push_back(call(obj, cmd, args));
+
+	return results;
 }
 
 // ---------------------------------------------------------- asynchronous call -
@@ -457,6 +567,29 @@ void ubus::send_event(const std::string& id, const JSON& data) const {
 
 	ubus_send_event(this -> context -> ctx, id.c_str(), b.head);
 	blob_buf_free(&b);
+}
+
+// --------------------------------------------------------------- notify -----
+void ubus::notify(const std::string& obj_name, const std::string& type,
+		  const JSON& data, int timeout) const {
+
+	for ( auto& o : this -> objects ) {
+		if ( std::string(o -> object -> name) != obj_name )
+			continue;
+
+		blob_buf b;
+		memset(&b, 0, sizeof(b));
+		blob_buf_init(&b, 0);
+
+		if ( !data.empty() && !blobmsg_add_json_from_string(&b, data.dump(false).c_str())) {
+			blob_buf_free(&b);
+			return;
+		}
+
+		ubus_notify(this -> context -> ctx, o -> object.get(), type.c_str(), b.head, timeout);
+		blob_buf_free(&b);
+		return;
+	}
 }
 
 void ubus::add_event_handler(const std::string& pattern,

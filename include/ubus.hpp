@@ -22,6 +22,8 @@ class ubus {
 		std::vector<std::unique_ptr<EventHandler>> event_handlers;
 		std::unique_ptr<Context> context;
 
+		static void subscriber_trampoline(void* ctx, void* obj);
+
 	public:
 
 		// Internal: (re-)register all objects and event handlers. Called
@@ -61,6 +63,24 @@ class ubus {
 			std::vector<std::pair<std::string, JSON::TYPE>> hints;
 		};
 
+		// Subscription handle for receiving notifications from an object.
+		// Unsubscribes automatically when destroyed.
+		class subscription {
+			public:
+				struct state;  // opaque
+				explicit subscription(const std::shared_ptr<state>& s) : _s(s) {}
+
+				~subscription();
+				subscription(subscription&&) = default;
+				subscription& operator=(subscription&&) = default;
+
+				subscription(const subscription&) = delete;
+				subscription& operator=(const subscription&) = delete;
+
+			private:
+				std::shared_ptr<state> _s;
+		};
+
 		class exception : public std::runtime_error {
 
 			private:
@@ -75,11 +95,16 @@ class ubus {
 		};
 
 		// Register a ubus object with its methods.
-		void add_object(const std::string& name, const std::vector<method>& methods);
+		void add_object(const std::string& name, const std::vector<method>& methods,
+				std::function<void(bool active)> subscribe_cb = nullptr);
 
 		// Synchronous call: blocks until the reply arrives or the timeout
 		// elapses; throws ubus::exception on failure.
 		JSON call(const std::string& obj, const std::string& cmd, const JSON& args = JSON()) const;
+
+		// Batch call: execute multiple calls sequentially.
+		// Returns results in order. If any call fails, throws exception.
+		std::vector<JSON> call_batch(const std::vector<std::tuple<std::string, std::string, JSON>>& calls) const;
 
 		// Asynchronous call: returns immediately. cb(result, ok) fires from the
 		// uloop when the reply arrives; ok is false on error/timeout (result empty).
@@ -93,6 +118,16 @@ class ubus {
 		// cb(id, data) fires from the uloop for every matching event.
 		void add_event_handler(const std::string& pattern,
 				std::function<void(const std::string& id, const JSON& data)> cb);
+
+		// Send a notification to subscribers of an object.
+		// Requires that the object has been registered and has subscribers.
+		void notify(const std::string& obj_name, const std::string& type,
+			    const JSON& data = JSON(), int timeout = -1) const;
+
+		// Subscribe to an object's notifications.
+		// cb(type, data) fires for every notification received.
+		subscription subscribe(const std::string& obj_name,
+				       std::function<void(const std::string& type, const JSON& data)> cb);
 
 		std::string socket() const;
 		int timeout() const;
