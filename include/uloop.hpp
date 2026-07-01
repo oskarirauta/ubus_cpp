@@ -10,7 +10,9 @@ namespace uloop {
 	}
 
 	bool is_running();
+	bool is_initialized();
 
+	void init();
 	void run();
 	void exit(int timeout = 50); // small delay to ensure that on-going task has time to finish..
 }

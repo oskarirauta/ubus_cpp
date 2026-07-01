@@ -71,7 +71,11 @@ void ubus::request::reply(const JSON& res, int status) const {
 	blob_buf b;
 	memset(&b, 0, sizeof(b));
 	blob_buf_init(&b, 0);
-	blobmsg_add_json_from_string(&b, r.dump(false).c_str());
+	if (!blobmsg_add_json_from_string(&b, r.dump(false).c_str())) {
+		blob_buf_free(&b);
+		return;
+	}
+
 	ubus_send_reply(this -> _s -> ctx, &this -> _s -> req, b.head);
 	blob_buf_free(&b);
 
@@ -119,7 +123,12 @@ static int common_handler(ubus_context *ctx, ubus_object *obj, ubus_request_data
 	blob_buf b;
 	memset(&b, 0, sizeof(b));
 	blob_buf_init(&b, 0);
-	blobmsg_add_json_from_string(&b, _res.dump(false).c_str());
+
+	if (!blobmsg_add_json_from_string(&b, _res.dump(false).c_str())) {
+		blob_buf_free(&b);
+		return UBUS_STATUS_UNKNOWN_ERROR;
+	}
+
 	ubus_send_reply(ctx, req, b.head);
 	blob_buf_free(&b);
 
@@ -178,6 +187,8 @@ ubus::Context::Context(const std::string& socket, int timeout, bool auto_reconne
 }
 
 ubus::Context::~Context() {
+
+	// TODO: should we also cancel pending requests/timeouts?
 
 	if ( this -> auto_reconnect ) {
 		uloop_timeout_cancel(&this -> autoconn.timer);
@@ -257,7 +268,7 @@ ubus::ubus(const std::string& socket, int timeout, bool auto_reconnect) {
 	if ( ubus_singleton != nullptr )
 		throw ubus::exception("ubus instance already created, multiple instances are not supported", -1);
 
-	uloop_init();
+	uloop::init();
 
 	this -> context = std::make_unique<Context>(socket, timeout, auto_reconnect);
 	ubus_singleton = this;
@@ -265,6 +276,8 @@ ubus::ubus(const std::string& socket, int timeout, bool auto_reconnect) {
 
 ubus::~ubus() {
 
+	ubus_methods.clear();
+	ubus_event_cbs.clear();
 	ubus_singleton = nullptr;
 	this -> context.reset();
 }
@@ -400,15 +413,21 @@ void ubus::call_async(const std::string& obj, const std::string& cmd, const JSON
 	blob_buf b;
 	memset(&b, 0, sizeof(b));
 	blob_buf_init(&b, 0);
-	if ( !args.empty())
-		blobmsg_add_json_from_string(&b, args.dump(false).c_str());
+	if ( !args.empty()) {
+		if ( !blobmsg_add_json_from_string(&b, args.dump(false).c_str())) {
+			blob_buf_free(&b);
+			if (cb) cb(JSON::Object(), false);
+			return;
+		}
+	}
 
 	ubus_request* req = (ubus_request*)calloc(1, sizeof(ubus_request));
 
 	if ( int ret = ubus_invoke_async(this -> context -> ctx, id, cmd.c_str(), b.head, req); ret != 0 ) {
 		blob_buf_free(&b);
 		free(req);
-		if ( cb ) cb(JSON::Object(), false);
+		if (cb)
+			cb(JSON::Object(), false);
 		return;
 	}
 
@@ -429,8 +448,12 @@ void ubus::send_event(const std::string& id, const JSON& data) const {
 	blob_buf b;
 	memset(&b, 0, sizeof(b));
 	blob_buf_init(&b, 0);
-	if ( !data.empty())
-		blobmsg_add_json_from_string(&b, data.dump(false).c_str());
+	if ( !data.empty()) {
+		if (!blobmsg_add_json_from_string(&b, data.dump(false).c_str())) {
+			blob_buf_free(&b);
+			return;
+		}
+	}
 
 	ubus_send_event(this -> context -> ctx, id.c_str(), b.head);
 	blob_buf_free(&b);

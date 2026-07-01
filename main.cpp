@@ -3,8 +3,7 @@
 #include <unistd.h>
 #include "ubus.hpp"
 
-ubus* srv;
-int renew = 2000;
+std::unique_ptr<ubus> srv;
 
 // --- synchronous method: fill res, it is sent when you return -----------------
 int hello_func(const std::string& method, const JSON& req, JSON& res) {
@@ -107,7 +106,7 @@ int client_main() {
 int main(int argc, char **argv) {
 
 	try {
-		srv = new ubus;
+		srv = std::make_unique<ubus>();
 	} catch ( const ubus::exception& e ) {
 		std::cout << "failed to create ubus context, reason:\n" << e.what() << std::endl;
 		return 1;
@@ -120,7 +119,6 @@ int main(int argc, char **argv) {
 		res = client_main();
 	else res = server_main();
 
-	delete srv;
 	std::cout << "exiting.." << std::endl;
 	return res;
 }
